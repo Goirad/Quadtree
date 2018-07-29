@@ -2,8 +2,7 @@ extern crate rand;
 use rand::{thread_rng, Rng};
 
 extern crate quadtree;
-use quadtree::{Spacial, Quadtree, BoundingBox};
-
+use quadtree::{Boundable, BoundingBox, Quadtree};
 
 fn main() {
     println!("Hello, world!");
@@ -25,28 +24,25 @@ fn main() {
         });
     }
     println!("done creating");
-    let mut n = 10_000;
-    //for _ in 0..2 {
+
+    let n = 10_000;
     println!("inserting {} items", n);
+
     for p in pts.iter().take(n) {
         qt.insert(p);
     }
-    println!("counting subtrees");
-    println!("{} items, {} trees", n, qt.tot_trees());
-    //qt.clear();
-    n *= 10;
-    //}
 
-    //std::thread::sleep_ms(10_000);
+    println!("counting subtrees");
+    println!("{} items, {} trees", n, qt.total_trees());
+
     let sb = BoundingBox {
         x: 0.0,
         y: 0.0,
-        w: 5.0,
-        h: 5.0,
+        w: 25.0,
+        h: 25.0,
     };
     let found = qt.find(&sb);
-    println!("{:#?}, {}", found, found.len());
-    //println!("{:#?}", qt);
+    println!("found {}", found.len());
 }
 
 #[derive(Debug)]
@@ -54,11 +50,13 @@ struct Point {
     x: f64,
     y: f64,
 }
-impl Spacial for Point {
-    fn x(&self) -> f64 {
-        self.x
-    }
-    fn y(&self) -> f64 {
-        self.y
+impl Boundable for Point {
+    fn bounds(&self) -> BoundingBox {
+        BoundingBox {
+            x: self.x,
+            y: self.y,
+            w: 0.0,
+            h: 0.0,
+        }
     }
 }

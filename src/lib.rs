@@ -1,26 +1,33 @@
 #[derive(Debug, Copy, Clone)]
 pub struct BoundingBox {
-    pub x: f64,
     //center coords
+    pub x: f64,
     pub y: f64,
-    pub w: f64,
+
     //half width and height
+    pub w: f64,
     pub h: f64,
 }
 
 impl BoundingBox {
-    pub fn contains<T: Spacial>(&self, item: &T) -> bool {
-        !(item.x() < self.x - self.w || item.x() > self.x + self.w || item.y() > self.y + self.h
-            || item.y() < self.y - self.h)
+    pub fn contains(&self, item: &BoundingBox) -> bool {
+        !(item.x < self.x - self.w
+            || item.x > self.x + self.w
+            || item.y > self.y + self.h
+            || item.y < self.y - self.h)
     }
     pub fn contains_completely(&self, other: &BoundingBox) -> bool {
-        (other.x - other.w > self.x - self.w && other.x + other.w < self.x + self.w
-            && other.y - other.h > self.y - self.h && other.y + other.h < self.y + self.h)
+        (other.x - other.w > self.x - self.w
+            && other.x + other.w < self.x + self.w
+            && other.y - other.h > self.y - self.h
+            && other.y + other.h < self.y + self.h)
     }
 
     pub fn intersects(&self, other: &BoundingBox) -> bool {
-        !(self.x + self.w < other.x - other.w || self.x - self.w > other.x + other.w
-            || self.y + self.h < other.y - other.h || self.y - self.h > other.y + other.h)
+        !(self.x + self.w < other.x - other.w
+            || self.x - self.w > other.x + other.w
+            || self.y + self.h < other.y - other.h
+            || self.y - self.h > other.y + other.h)
     }
     fn tl(&self) -> BoundingBox {
         BoundingBox {
@@ -61,16 +68,14 @@ pub struct Quadtree<'a, T: 'a> {
     split_threshold: usize,
     bb: BoundingBox,
     data: Vec<&'a T>,
-    //st: Vec<Box<Quadtree<'a, T>>>,
     st: Vec<Quadtree<'a, T>>,
 }
 
-pub trait Spacial {
-    fn x(&self) -> f64;
-    fn y(&self) -> f64;
+pub trait Boundable {
+    fn bounds(&self) -> BoundingBox;
 }
 
-impl<'a, T: Spacial> Quadtree<'a, T> {
+impl<'a, T: Boundable> Quadtree<'a, T> {
     pub fn new(bb: BoundingBox, threshold: usize) -> Quadtree<'a, T> {
         Quadtree {
             split_threshold: threshold,
@@ -80,10 +85,10 @@ impl<'a, T: Spacial> Quadtree<'a, T> {
         }
     }
     pub fn contains(&self, item: &T) -> bool {
-        self.bb.contains(item)
+        self.bb.contains(&item.bounds())
     }
     fn split(&mut self) {
-        if (self.st.len() == 0) {
+        if self.st.len() == 0 {
             let mut st = vec![];
             st.push(Quadtree::new(self.bb.tl(), self.split_threshold));
             st.push(Quadtree::new(self.bb.tr(), self.split_threshold));
@@ -111,19 +116,21 @@ impl<'a, T: Spacial> Quadtree<'a, T> {
             false
         }
     }
-    //consider converting this to an iterative approach
-    //maybe first go through and do a df traversal, with the obvious stop condition
-    //and then check each tree that matches
 
-    //also maybe consider a new check to see if the sb completely contains the
-    //trees bounding box, in that case it can be iterated through rather than recursed through
-    pub fn find(&self, sb: &BoundingBox) -> Vec<&T> {
+    /*
+        Recursively finds all elements whose bounding boxes overlap with the search box
+    */
+    pub fn find(&self, search_box: &BoundingBox) -> Vec<&T> {
         let mut result = vec![];
+        self.find_rec(search_box, &mut result);
+        result
+    }
 
-        if self.bb.intersects(&sb) {
+    fn find_rec(&self, search_box: &BoundingBox, out: &mut Vec<&'a T>) {
+        if self.bb.intersects(&search_box) {
             for d in self.data.iter() {
-                if sb.contains(*d) {
-                    result.push(*d);
+                if search_box.contains(&d.bounds()) {
+                    out.push(*d);
                 }
             }
             for st in self.st.iter() {
@@ -131,25 +138,30 @@ impl<'a, T: Spacial> Quadtree<'a, T> {
                 //the idea being that it is cheaper to check its length
                 //here than to enter a new function call
                 if st.data.len() > 0 {
-                    result.append(&mut st.find(sb));
+                    st.find_rec(search_box, out);
                 }
             }
         }
-
-        result
     }
-    pub fn tot_trees(&self) -> usize {
+
+    /*
+        Handy function to see how many trees your quadtree has
+    */
+    pub fn total_trees(&self) -> usize {
         let mut total = 0;
 
         total += self.st.len();
         for st in self.st.iter() {
-            total += st.tot_trees();
+            total += st.total_trees();
         }
         total
     }
+
+    /*
+        Wipes the quadtree
+    */
     pub fn clear(&mut self) {
         self.data.clear();
         self.st.clear();
     }
 }
-
