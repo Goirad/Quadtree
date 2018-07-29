@@ -1,11 +1,13 @@
 #[derive(Debug, Copy, Clone)]
 pub struct BoundingBox {
-    //center coords
+    /// center x coord
     pub x: f64,
+    /// center y coord
     pub y: f64,
 
-    //half width and height
+    /// half width
     pub w: f64,
+    ///half height
     pub h: f64,
 }
 
@@ -76,6 +78,9 @@ pub trait Boundable {
 }
 
 impl<'a, T: Boundable> Quadtree<'a, T> {
+
+    /// Creates a new quadtree with the given split threshold, ie each tree contains threshold
+    /// items before splitting
     pub fn new(bb: BoundingBox, threshold: usize) -> Quadtree<'a, T> {
         Quadtree {
             split_threshold: threshold,
@@ -84,9 +89,12 @@ impl<'a, T: Boundable> Quadtree<'a, T> {
             data: vec![],
         }
     }
+
+    /// Checks whether the item is within the trees bounds, NOT if the item is actually in the tree
     pub fn contains(&self, item: &T) -> bool {
         self.bb.contains(&item.bounds())
     }
+
     fn split(&mut self) {
         if self.st.len() == 0 {
             let mut st = vec![];
@@ -98,10 +106,13 @@ impl<'a, T: Boundable> Quadtree<'a, T> {
             self.st = st;
         }
     }
+
+    /// Recursively inserts item into the quadtree
     pub fn insert(&mut self, item: &'a T) -> bool {
         if !self.contains(item) {
             return false;
         }
+
         if self.data.len() < self.split_threshold {
             self.data.push(item);
             return true;
@@ -117,9 +128,8 @@ impl<'a, T: Boundable> Quadtree<'a, T> {
         }
     }
 
-    /*
-        Recursively finds all elements whose bounding boxes overlap with the search box
-    */
+
+    /// Recursively finds all elements whose bounding boxes overlap with the search box
     pub fn find(&self, search_box: &BoundingBox) -> Vec<&T> {
         let mut result = vec![];
         self.find_rec(search_box, &mut result);
@@ -144,9 +154,7 @@ impl<'a, T: Boundable> Quadtree<'a, T> {
         }
     }
 
-    /*
-        Handy function to see how many trees your quadtree has
-    */
+    /// Returns the number of trees contained in this subtree, NOT including itself
     pub fn total_trees(&self) -> usize {
         let mut total = 0;
 
@@ -157,9 +165,7 @@ impl<'a, T: Boundable> Quadtree<'a, T> {
         total
     }
 
-    /*
-        Wipes the quadtree
-    */
+    /// Clear the subtree, removes all data and subtrees
     pub fn clear(&mut self) {
         self.data.clear();
         self.st.clear();
